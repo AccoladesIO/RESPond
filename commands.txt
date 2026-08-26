@@ -1,0 +1,4 @@
+SET a 1
+SET b 2
+MGET a b
+DEL a b
