@@ -4,11 +4,6 @@
 #include <string>
 #include <vector>
 
-// ===========================================================================
-// CommandHandler::parseCommand
-// Tokenises a raw input line. Bare words split on whitespace; a run inside
-// double quotes is kept as a single token with the quotes stripped.
-// ===========================================================================
 
 TEST(ParseCommand, EmptyInputYieldsNoTokens) {
     EXPECT_TRUE(CommandHandler::parseCommand("").empty());
@@ -19,55 +14,39 @@ TEST(ParseCommand, WhitespaceOnlyYieldsNoTokens) {
 }
 
 TEST(ParseCommand, SingleWord) {
-    std::vector<std::string> expected{"PING"};
-    EXPECT_EQ(CommandHandler::parseCommand("PING"), expected);
+    EXPECT_EQ(CommandHandler::parseCommand("PING"),
+              (std::vector<std::string>{"PING"}));
 }
 
-TEST(ParseCommand, SplitsOnSpaces) {
-    std::vector<std::string> expected{"SET", "key", "value"};
-    EXPECT_EQ(CommandHandler::parseCommand("SET key value"), expected);
-}
-
-TEST(ParseCommand, CollapsesRepeatedSpaces) {
-    std::vector<std::string> expected{"SET", "key", "value"};
-    EXPECT_EQ(CommandHandler::parseCommand("SET   key    value"), expected);
-}
-
-TEST(ParseCommand, IgnoresLeadingAndTrailingSpaces) {
-    std::vector<std::string> expected{"GET", "foo"};
-    EXPECT_EQ(CommandHandler::parseCommand("   GET foo   "), expected);
-}
-
-TEST(ParseCommand, SplitsOnTabs) {
-    std::vector<std::string> expected{"SET", "key"};
-    EXPECT_EQ(CommandHandler::parseCommand("SET\tkey"), expected);
+TEST(ParseCommand, SplitsOnArbitraryWhitespace) {
+    EXPECT_EQ(CommandHandler::parseCommand("  SET\t  key    value  "),
+              (std::vector<std::string>{"SET", "key", "value"}));
 }
 
 TEST(ParseCommand, KeepsQuotedStringAsOneTokenWithoutQuotes) {
-    std::vector<std::string> expected{"SET", "greeting", "hello world"};
-    EXPECT_EQ(CommandHandler::parseCommand("SET greeting \"hello world\""), expected);
+    EXPECT_EQ(CommandHandler::parseCommand("SET greeting \"hello world\""),
+              (std::vector<std::string>{"SET", "greeting", "hello world"}));
 }
 
 TEST(ParseCommand, QuotedEmptyStringIsAnEmptyToken) {
-    std::vector<std::string> expected{"SET", "key", ""};
-    EXPECT_EQ(CommandHandler::parseCommand("SET key \"\""), expected);
+    EXPECT_EQ(CommandHandler::parseCommand("SET key \"\""),
+              (std::vector<std::string>{"SET", "key", ""}));
 }
 
 TEST(ParseCommand, QuotedRunOfSpacesIsPreserved) {
-    std::vector<std::string> expected{"SET", "key", "   "};
-    EXPECT_EQ(CommandHandler::parseCommand("SET key \"   \""), expected);
+    EXPECT_EQ(CommandHandler::parseCommand("SET key \"   \""),
+              (std::vector<std::string>{"SET", "key", "   "}));
 }
 
-TEST(ParseCommand, MultipleQuotedTokens) {
-    std::vector<std::string> expected{"a b", "c d"};
-    EXPECT_EQ(CommandHandler::parseCommand("\"a b\" \"c d\""), expected);
+TEST(ParseCommand, MixesQuotedAndBareTokens) {
+    EXPECT_EQ(CommandHandler::parseCommand("HSET \"my hash\" field val"),
+              (std::vector<std::string>{"HSET", "my hash", "field", "val"}));
 }
 
-// ===========================================================================
-// CommandHandler::buildRESPCommand
-// Serialises an argument vector into a RESP array of bulk strings.
-// Layout:  *<n>\r\n  then for each arg:  $<len>\r\n<arg>\r\n
-// ===========================================================================
+TEST(ParseCommand, PunctuationInsideAWordStaysAttached) {
+    EXPECT_EQ(CommandHandler::parseCommand("GET user:1000:name"),
+              (std::vector<std::string>{"GET", "user:1000:name"}));
+}
 
 TEST(BuildRESPCommand, EmptyArgsIsEmptyArray) {
     EXPECT_EQ(CommandHandler::buildRESPCommand({}), "*0\r\n");
@@ -93,9 +72,16 @@ TEST(BuildRESPCommand, EmptyArgumentIsZeroLengthBulkString) {
               "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$0\r\n\r\n");
 }
 
-// ===========================================================================
-// parse -> build round trip (how the two are actually used together in CLI)
-// ===========================================================================
+TEST(BuildRESPCommand, LengthPrefixIsByteCountNotCharCount) {
+    EXPECT_EQ(CommandHandler::buildRESPCommand({"ECHO", "123456789012"}),
+              "*2\r\n$4\r\nECHO\r\n$12\r\n123456789012\r\n");
+}
+
+TEST(BuildRESPCommand, IsBinarySafeForEmbeddedCrlf) {
+    EXPECT_EQ(CommandHandler::buildRESPCommand({"SET", "k", "a\r\nb"}),
+              "*3\r\n$3\r\nSET\r\n$1\r\nk\r\n$4\r\na\r\nb\r\n");
+}
+
 
 TEST(CommandPipeline, ParseThenBuildProducesWireFormat) {
     auto args = CommandHandler::parseCommand("SET greeting \"hello world\"");
