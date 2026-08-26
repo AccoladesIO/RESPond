@@ -1,5 +1,4 @@
 #include "CLI.h"
-#include "CommandHandler.h"
 #include "ResponseParser.h"
 #include <string>
 #include <iostream>
@@ -44,6 +43,15 @@ void CLI::run() {
             std::cout << "  history - Show command history\n";
             continue;
         }
+        if (line == "history") {
+            std::cout << "Command history:\n";
+            for (size_t i = 0; i < history.size(); ++i) {
+                std::cout << i + 1 << ": " << history[i] << "\n";
+            }
+            continue;
+        }
+
+        history.push_back(line); // save command
 
         std::vector<std::string> args = CommandHandler::parseCommand(line);
         if (args.empty()) continue;
