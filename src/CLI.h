@@ -4,6 +4,7 @@
 #include <vector> 
 #include <string>
 #include "CommandHandler.h"
+#include "ResponseParser.h"
 
 class CLI {
 public:

@@ -8,10 +8,7 @@
 class CommandHandler {
 public:
     static std::vector<std::string> parseCommand(const std::string& input);
-
-    // Build a RESP command from the vector arguments
-
-    static std::string buildRESPCommand(const std::vector<std::string> &args);
+    static std::string buildRESPCommand(const std::vector<std::string>& args);
 };
 
 #endif // COMMAND_HANDLER_H
