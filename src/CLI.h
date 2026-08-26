@@ -14,6 +14,8 @@ public:
 private:
     RedisClient redisClient;
     std::vector<std::string> history;
+    std::string host;
+    int port;
 };
 
 #endif // CLI_H
