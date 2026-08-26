@@ -1,6 +1,7 @@
 #include "Utils.h"
 #include <sys/socket.h>
 #include <unistd.h>
+#include <sstream>
 
 namespace Utils {
 
@@ -26,5 +27,65 @@ std::string readLine(int sockfd) {
     }
     return line;
 }
+
+std::string formatPrettyJson(const std::string& json, int indentSpaces) {
+    std::ostringstream oss;
+    int indent = 0;
+    bool inQuotes = false;
+    bool escape = false;
+
+    for (size_t i = 0; i < json.size(); ++i) {
+        char c = json[i];
+
+        if (escape) {
+            oss << c;
+            escape = false;
+            continue;
+        }
+
+        if (c == '\\') {
+            oss << c;
+            escape = true;
+            continue;
+        }
+
+        if (c == '"') {
+            inQuotes = !inQuotes;
+            oss << c;
+            continue;
+        }
+
+        if (inQuotes) {
+            oss << c;
+            continue;
+        }
+
+        if (c == '{' || c == '[') {
+            oss << c;
+            if (i + 1 < json.size() && ((c == '{' && json[i + 1] == '}') || (c == '[' && json[i + 1] == ']'))) {
+                continue;
+            }
+            indent++;
+            oss << "\n" << std::string(indent * indentSpaces, ' ');
+        } else if (c == '}' || c == ']') {
+            if (i > 0 && ((c == '}' && json[i - 1] == '{') || (c == ']' && json[i - 1] == '['))) {
+                oss << c;
+                continue;
+            }
+            indent--;
+            oss << "\n" << std::string(indent * indentSpaces, ' ') << c;
+        } else if (c == ',') {
+            oss << ",\n" << std::string(indent * indentSpaces, ' ');
+        } else if (c == ':') {
+            oss << ": ";
+        } else if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+            oss << c;
+        }
+    }
+
+    return oss.str();
+}
+
+
 
 }
