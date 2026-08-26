@@ -1,17 +1,13 @@
 #include "CLI.h"
+#include "CommandHandler.h"
 #include "ResponseParser.h"
+#include "Utils.h"
 #include <string>
 #include <iostream>
-
-static std::string trim(const std::string& str) {
-    size_t first = str.find_first_not_of(" \t\n\r");
-    if (first == std::string::npos) return "";
-    size_t last = str.find_last_not_of(" \t\n\r");
-    return str.substr(first, (last - first + 1));
-}
+#include "AutoComplete.h"
 
 CLI::CLI(const std::string& host, int port)
-    : redisClient(host, port) {}
+    : redisClient(host, port), host(host), port(port) {}
 
 void CLI::run() {
     if (!redisClient.connectToServer()) {
@@ -20,27 +16,48 @@ void CLI::run() {
     }
 
     std::cout << "Connected to Redis server at " << redisClient.getSocketFD() << "\n";
-    std::string host = "127.0.0.1";
 
     while (true) {
-        std::cout << host << ":" << redisClient.getSocketFD() << "> ";
+        std::cout << host << ":" << port << "> ";
         std::cout.flush();
 
         std::string line;
-        std::getline(std::cin, line);
-        line = trim(line);
+        if (!std::getline(std::cin, line)) {
+            break;
+        }
+        line = Utils::trim(line);
+
+        std::string original = line;
+        line = Autocomplete::complete(line);
+
+        // If multiple suggestions exist, show them
+        auto sugg = Autocomplete::suggestions(original);
+        if (sugg.size() > 1) {
+            std::cout << "Did you mean: ";
+            for (const auto& s : sugg) {
+                std::cout << s << " ";
+            }
+            std::cout << "\n";
+        }
 
         if (line.empty()) continue;
+        if (line == "q") line = "quit";
+        else if (line == "h") line = "help";
+        else if (line == "c") line = "clear";
+        else if (line == "hist") line = "history";
+        else if (line == "ch") line = "clear-history";
+
         if (line == "exit" || line == "quit") {
             std::cout << "Exiting CLI.\n";
             break;
         }
         if (line == "help") {
             std::cout << "Available commands:\n";
-            std::cout << "  help - Show this help message\n";
-            std::cout << "  exit or quit - Exit the CLI\n";
-            std::cout << "  clear - Clear the screen\n";
-            std::cout << "  history - Show command history\n";
+            std::cout << "  help (h) - Show this help message\n";
+            std::cout << "  exit or quit (q) - Exit the CLI\n";
+            std::cout << "  clear (c) - Clear the screen\n";
+            std::cout << "  history (hist) - Show command history\n";
+            std::cout << "  clear-history (ch) - Clear stored command history\n";
             continue;
         }
         if (line == "history") {
@@ -50,8 +67,19 @@ void CLI::run() {
             }
             continue;
         }
+        if (line == "clear-history") {
+            history.clear();
+            std::cout << "History cleared.\n";
+            continue;
+        }
+        if (line == "clear") {
+            std::cout << "\033[2J\033[H"; // clear screen + move cursor to top
+            continue;
+        }
 
-        history.push_back(line); // save command
+
+
+        history.push_back(line);
 
         std::vector<std::string> args = CommandHandler::parseCommand(line);
         if (args.empty()) continue;

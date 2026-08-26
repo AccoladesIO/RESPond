@@ -20,6 +20,14 @@ void RedisClient::closeServerConnection() {
     }
 }
 
+void RedisClient::setTimeout(int seconds) {
+    timeoutSeconds = seconds;
+}
+
+void RedisClient::setRetries(int count) {
+    retryCount = count;
+}
+
 bool RedisClient::connectToServer() {
     struct addrinfo hints, *res;
     std::memset(&hints, 0, sizeof(hints));
@@ -33,27 +41,49 @@ bool RedisClient::connectToServer() {
         return false;
     }
 
-    for (auto p = res; p != nullptr; p = p->ai_next) {
-        socketfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (socketfd == -1) {
-            continue;
+    bool connected = false;
+    for (int attempt = 1; attempt <= retryCount && !connected; ++attempt) {
+        for (auto p = res; p != nullptr; p = p->ai_next) {
+            socketfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+            if (socketfd == -1) continue;
+
+            // Apply timeout
+            struct timeval tv;
+            tv.tv_sec = timeoutSeconds;
+            tv.tv_usec = 0;
+            setsockopt(socketfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+            setsockopt(socketfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
+            if (connect(socketfd, p->ai_addr, p->ai_addrlen) == 0) {
+                connected = true;
+                break;
+            }
+
+            close(socketfd);
+            socketfd = -1;
         }
 
-        if (connect(socketfd, p->ai_addr, p->ai_addrlen) == 0) {
-            break;
+        if (!connected) {
+            std::cerr << "Connection attempt " << attempt << " failed.\n";
+            if (attempt < retryCount) {
+                int waitTime = (1 << (attempt - 1));
+                std::cerr << "Retrying in " << waitTime << "s...\n";
+                sleep(waitTime);
+            }
         }
-        close(socketfd);
-        socketfd = -1;
     }
+
     freeaddrinfo(res);
 
-    if (socketfd == -1) {
-        std::cerr << "Failed to connect to " << host << ":" << port << "\n";
+    if (!connected) {
+        std::cerr << "Failed to connect to " << host << ":" << port
+                  << " after " << retryCount << " attempts.\n";
         return false;
     }
 
     return true;
 }
+
 
 bool RedisClient::sendCommand(const std::string& command) {
     if (socketfd == -1) {

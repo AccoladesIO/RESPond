@@ -20,11 +20,15 @@ public:
     bool sendCommand(const std::string& command);
     void closeServerConnection();
     int getSocketFD() const;
+    void setTimeout(int seconds); 
+    void setRetries(int count);
 
 private:
     std::string host;
     int port;
     int socketfd;
+    int timeoutSeconds = 30;
+    int retryCount = 3; 
 };
 
 #endif // REDIS_CLIENT_H
