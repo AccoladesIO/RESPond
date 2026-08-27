@@ -13,13 +13,13 @@ std::string parse(const std::string& raw, bool pretty = false) {
     EXPECT_EQ(::socketpair(AF_UNIX, SOCK_STREAM, 0, fds), 0);
     ssize_t w = ::write(fds[1], raw.data(), raw.size());
     EXPECT_EQ(w, static_cast<ssize_t>(raw.size()));
-    ::close(fds[1]);  // EOF, so any over-read is detected rather than blocking
+    ::close(fds[1]);
     std::string out = ResponseParser::parseResponse(fds[0], pretty);
     ::close(fds[0]);
     return out;
 }
 
-} 
+}
 
 TEST(ParseResponse, SimpleString) {
     EXPECT_EQ(parse("+OK\r\n"), "\"OK\"");
@@ -57,8 +57,6 @@ TEST(ParseResponse, Null) {
     EXPECT_EQ(parse("_\r\n"), "null");
 }
 
-// --- Bulk / verbatim strings ----------------------------------------------
-
 TEST(ParseResponse, BulkString) {
     EXPECT_EQ(parse("$5\r\nhello\r\n"), "\"hello\"");
 }
@@ -72,11 +70,8 @@ TEST(ParseResponse, NullBulkString) {
 }
 
 TEST(ParseResponse, VerbatimStringStripsThreeByteTypePrefix) {
-    // =<len>\r\n<3-char type>:<payload>\r\n  ->  payload only
     EXPECT_EQ(parse("=15\r\ntxt:Some string\r\n"), "\"Some string\"");
 }
-
-// --- Aggregates ------------------------------------------------------------
 
 TEST(ParseResponse, ArrayOfIntegers) {
     EXPECT_EQ(parse("*2\r\n:1\r\n:2\r\n"), "[1, 2]");
@@ -111,14 +106,9 @@ TEST(ParseResponse, PushMessage) {
               "{\"push\": [\"message\", \"hello\"]}");
 }
 
-// --- Escaping --------------------------------------------------------------
-
 TEST(ParseResponse, EscapesEmbeddedDoubleQuote) {
-    // Bulk payload a"b must be emitted as JSON "a\"b".
     EXPECT_EQ(parse("$3\r\na\"b\r\n"), "\"a\\\"b\"");
 }
-
-// --- Error / edge conditions ----------------------------------------------
 
 TEST(ParseResponse, UnknownTypeByteReportsError) {
     EXPECT_EQ(parse("!oops\r\n"),
@@ -129,8 +119,20 @@ TEST(ParseResponse, ClosedConnectionReportsError) {
     EXPECT_EQ(parse(""), "{\"error\": \"No response or connection closed\"}");
 }
 
-TEST(ParseResponse, BulkStringWithColonIsTreatedAsInfoKeyValue) {
-    EXPECT_EQ(parse("$7\r\nk:v arg\r\n"), "{\"k\": \"v arg\"}");
+TEST(ParseResponse, ColonInValueIsPreservedAsPlainString) {
+    EXPECT_EQ(parse("$9\r\nuser:1000\r\n"), "\"user:1000\"");
+}
+
+TEST(ParseResponse, UrlValueWithColonsAndSlashesIsPreserved) {
+    EXPECT_EQ(parse("$15\r\nhttp://a.b:8080\r\n"), "\"http://a.b:8080\"");
+}
+
+TEST(ParseResponse, HashInValueIsPreservedAsPlainString) {
+    EXPECT_EQ(parse("$10\r\ncolor=#fff\r\n"), "\"color=#fff\"");
+}
+
+TEST(ParseResponse, SingleLineHashIsNotMistakenForAnInfoReply) {
+    EXPECT_EQ(parse("$6\r\n# note\r\n"), "\"# note\"");
 }
 
 TEST(ParseResponse, InfoBlockBecomesNestedObject) {
@@ -140,9 +142,7 @@ TEST(ParseResponse, InfoBlockBecomesNestedObject) {
               "{\"Server\": {\"redis_version\": \"7.0.0\", \"os\": \"Linux\"}}");
 }
 
-// --- Pretty printing integration ------------------------------------------
-
 TEST(ParseResponse, PrettyPrintsAnArray) {
-    EXPECT_EQ(parse("*2\r\n:1\r\n:2\r\n", /*pretty=*/true),
+    EXPECT_EQ(parse("*2\r\n:1\r\n:2\r\n", true),
               "[\n  1,\n  2\n]");
 }

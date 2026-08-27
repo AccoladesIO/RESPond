@@ -9,26 +9,32 @@
 RedisClient::RedisClient(const std::string &host, int port)
     : host(host), port(port), socketfd(-1) {}
 
-RedisClient::~RedisClient() {
+RedisClient::~RedisClient()
+{
     disconnectFromServer();
 }
 
-void RedisClient::closeServerConnection() {
-    if (socketfd != -1) {
+void RedisClient::closeServerConnection()
+{
+    if (socketfd != -1)
+    {
         close(socketfd);
         socketfd = -1;
     }
 }
 
-void RedisClient::setTimeout(int seconds) {
+void RedisClient::setTimeout(int seconds)
+{
     timeoutSeconds = seconds;
 }
 
-void RedisClient::setRetries(int count) {
+void RedisClient::setRetries(int count)
+{
     retryCount = count;
 }
 
-bool RedisClient::connectToServer() {
+bool RedisClient::connectToServer()
+{
     struct addrinfo hints, *res;
     std::memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -36,16 +42,20 @@ bool RedisClient::connectToServer() {
 
     std::string portStr = std::to_string(port);
     int status = getaddrinfo(host.c_str(), portStr.c_str(), &hints, &res);
-    if (status != 0) {
+    if (status != 0)
+    {
         std::cerr << "getaddrinfo error: " << gai_strerror(status) << "\n";
         return false;
     }
 
     bool connected = false;
-    for (int attempt = 1; attempt <= retryCount && !connected; ++attempt) {
-        for (auto p = res; p != nullptr; p = p->ai_next) {
+    for (int attempt = 1; attempt <= retryCount && !connected; ++attempt)
+    {
+        for (auto p = res; p != nullptr; p = p->ai_next)
+        {
             socketfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-            if (socketfd == -1) continue;
+            if (socketfd == -1)
+                continue;
 
             // Apply timeout
             struct timeval tv;
@@ -54,7 +64,8 @@ bool RedisClient::connectToServer() {
             setsockopt(socketfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
             setsockopt(socketfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
-            if (connect(socketfd, p->ai_addr, p->ai_addrlen) == 0) {
+            if (connect(socketfd, p->ai_addr, p->ai_addrlen) == 0)
+            {
                 connected = true;
                 break;
             }
@@ -63,9 +74,11 @@ bool RedisClient::connectToServer() {
             socketfd = -1;
         }
 
-        if (!connected) {
+        if (!connected)
+        {
             std::cerr << "Connection attempt " << attempt << " failed.\n";
-            if (attempt < retryCount) {
+            if (attempt < retryCount)
+            {
                 int waitTime = (1 << (attempt - 1));
                 std::cerr << "Retrying in " << waitTime << "s...\n";
                 sleep(waitTime);
@@ -75,7 +88,8 @@ bool RedisClient::connectToServer() {
 
     freeaddrinfo(res);
 
-    if (!connected) {
+    if (!connected)
+    {
         std::cerr << "Failed to connect to " << host << ":" << port
                   << " after " << retryCount << " attempts.\n";
         return false;
@@ -84,9 +98,10 @@ bool RedisClient::connectToServer() {
     return true;
 }
 
-
-bool RedisClient::sendCommand(const std::string& command) {
-    if (socketfd == -1) {
+bool RedisClient::sendCommand(const std::string &command)
+{
+    if (socketfd == -1)
+    {
         return false;
     }
 
@@ -94,11 +109,12 @@ bool RedisClient::sendCommand(const std::string& command) {
     return sent == (ssize_t)command.length();
 }
 
-
-void RedisClient::disconnectFromServer() {
+void RedisClient::disconnectFromServer()
+{
     closeServerConnection();
 }
 
-int RedisClient::getSocketFD() const {
+int RedisClient::getSocketFD() const
+{
     return socketfd;
 }
