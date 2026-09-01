@@ -43,20 +43,32 @@ respond/
 ├── Makefile                 # build the app and the test suite
 ├── README.md
 ├── commands.txt             # example script for --script
-├── src/
+├── include/                 # public headers (.h)
+│   ├── CLI.h
+│   ├── RedisClient.h
+│   ├── CommandHandler.h
+│   ├── ResponseParser.h
+│   ├── CommandExecutor.h
+│   ├── BufferedReader.h
+│   ├── Autocomplete.h
+│   ├── Config.h
+│   └── Utils.h
+├── src/                     # implementation (.cpp)
 │   ├── main.cpp             # argument parsing, mode selection
-│   ├── CLI.{h,cpp}          # interactive REPL loop
-│   ├── RedisClient.{h,cpp}  # TCP connection + send (IPv4/IPv6, timeout, retries)
-│   ├── CommandHandler.{h,cpp}   # tokenise input, build RESP requests
-│   ├── ResponseParser.{h,cpp}   # parse RESP/RESP3 replies into JSON
-│   ├── CommandExecutor.{h,cpp}  # one-shot, pipeline, and script execution
-│   ├── Autocomplete.{h,cpp}     # command-name prefix completion
-│   ├── Config.{h,cpp}       # persist host/port to ~/.respond.conf
-│   └── Utils.{h,cpp}        # trim, socket line reads, JSON pretty-printer
+│   ├── CLI.cpp              # interactive REPL loop
+│   ├── RedisClient.cpp      # TCP connection + send (IPv4/IPv6, timeout, retries)
+│   ├── CommandHandler.cpp   # tokenise input, build RESP requests
+│   ├── ResponseParser.cpp   # parse RESP/RESP3 replies into JSON
+│   ├── CommandExecutor.cpp  # one-shot, pipeline, and script execution
+│   ├── BufferedReader.cpp   # buffered socket reads (amortised recv)
+│   ├── Autocomplete.cpp     # command-name prefix completion
+│   ├── Config.cpp           # persist host/port to ~/.respond.conf
+│   └── Utils.cpp            # trim, JSON pretty-printer
 └── tests/
     ├── test_command_handler.cpp
     ├── test_response_parser.cpp
     ├── test_redis_client.cpp
+    ├── test_buffered_reader.cpp
     ├── test_utils.cpp
     ├── test_autocomplete.cpp
     └── test_config.cpp
@@ -254,7 +266,7 @@ make all
 
 Beyond the CLI, the core can be built as a C++ library and linked into other
 projects. Everything except `main.cpp` is bundled; the public API lives in the
-`src/*.h` headers (`CommandHandler`, `RedisClient`, `ResponseParser`,
+`include/*.h` headers (`CommandHandler`, `RedisClient`, `ResponseParser`,
 `CommandExecutor`, `Config`, `Autocomplete`, `Utils`).
 
 ### Build the library
