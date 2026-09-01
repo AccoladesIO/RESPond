@@ -18,11 +18,12 @@
 # ===========================================================================
 
 SRC_DIR   := src
+INC_DIR   := include
 TEST_DIR  := tests
 BUILD_DIR := build
 
 CXX      := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -g -I$(SRC_DIR) -MMD -MP
+CXXFLAGS := -std=c++17 -Wall -Wextra -g -I$(INC_DIR) -MMD -MP
 
 # GoogleTest: prefer a Homebrew install if present, else the system copy.
 GTEST_PREFIX := $(shell brew --prefix googletest 2>/dev/null)
@@ -104,7 +105,7 @@ PREFIX     ?= /usr/local
 INCLUDEDIR := $(PREFIX)/include/$(LIB_NAME)
 LIBDIR     := $(PREFIX)/lib
 PCDIR      := $(LIBDIR)/pkgconfig
-HEADERS    := $(wildcard $(SRC_DIR)/*.h)
+HEADERS    := $(wildcard $(INC_DIR)/*.h)
 
 static: $(STATIC_LIB)
 shared: $(SHARED_LIB)
