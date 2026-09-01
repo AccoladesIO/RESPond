@@ -33,10 +33,11 @@ endif
 GTEST_LIBS := $(GTEST_LIB) -lgtest -lgtest_main -pthread
 
 APP      := redis_cli
-TEST_BIN := unit_tests
+TEST_BIN  := unit_tests
+BENCH_BIN := bench
 
 # Core = every src file EXCEPT main.cpp; shared by the app, tests, and library.
-CORE_SRCS := $(filter-out $(SRC_DIR)/main.cpp,$(wildcard $(SRC_DIR)/*.cpp))
+CORE_SRCS := $(filter-out $(SRC_DIR)/main.cpp $(SRC_DIR)/bench.cpp,$(wildcard $(SRC_DIR)/*.cpp))
 CORE_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SRCS))
 MAIN_OBJ  := $(BUILD_DIR)/main.o
 
@@ -71,8 +72,12 @@ test: $(TEST_BIN)
 run: $(APP)
 	./$(APP)
 
+# Optional micro-benchmark (src/bench.cpp has its own main()).
+bench: $(CORE_OBJS) $(BUILD_DIR)/bench.o
+	$(CXX) $(CXXFLAGS) $^ -o $(BENCH_BIN)
+
 clean:
-	rm -rf $(BUILD_DIR) $(APP) $(TEST_BIN)
+	rm -rf $(BUILD_DIR) $(APP) $(TEST_BIN) $(BENCH_BIN)
 
 # --- Library packaging ------------------------------------------------------
 LIB_NAME   := respond

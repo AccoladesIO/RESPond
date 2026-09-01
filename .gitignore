@@ -33,6 +33,7 @@ redis_client
 run_tests
 build/
 bin/
+*.rdb
 
 # Debugging symbols
 *.dSYM/
